@@ -87,7 +87,7 @@ typedef struct _NET_STATUS
 }s_NetStatus;
 
 
-DEEPLEARNING_API s_NetStatus InitNet(void** net, char* cCfgPath, char* cWeightsPath, HTuple *hv_htClassNames, int *nOriImgWidth, int *nOriImgHeight, int *nChannels, int iNetType, bool bUseGPU);
+DEEPLEARNING_API s_NetStatus InitNet(void** net, char* cCfgPath, char* cWeightsPath, HTuple *hv_htClassNames, int *nOriImgWidth, int *nOriImgHeight, int nMode);
 
 DEEPLEARNING_API s_NetStatus DoInference(void* net, HObject ho_hImg, s_DLDetectResult& sDLDetectResult, float score);
 

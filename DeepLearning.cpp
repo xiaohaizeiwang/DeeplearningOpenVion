@@ -1,5 +1,6 @@
 #include "DeepLearning.h"
-#include "YoloVino.h"
+#include "YoloBin.h"
+#include "YoloOnnx.h"
 #include <string>
 #include "Utils.h"
 #include "io.h"
@@ -45,11 +46,9 @@ void ISRetMat2DLRet(Mat& results, Mat& masks, s_DLDetectResult& sDLDetectResult)
 
 }
 
-s_NetStatus InitNet(void** net, char* cCfgPath, char* cWeightsPath, HTuple* hv_htClassNames, int* nOriImgWidth, int* nOriImgHeight, int* nChannels, int iNetType, bool bUseGPU)
+s_NetStatus InitNet(void** net, char* cCfgPath, char* cWeightsPath, HTuple* hv_htClassNames, int* nOriImgWidth, int* nOriImgHeight, int nMode)
 {
 	s_NetStatus sNetStatus;
-
-	
 
 	try
 	{
@@ -80,29 +79,24 @@ s_NetStatus InitNet(void** net, char* cCfgPath, char* cWeightsPath, HTuple* hv_h
 		}
 		fs.release();
 
-		switch (nNetType)
+		string sWeightPath(cWeightsPath);
+
+		if (sWeightPath.find("onnx") != string::npos)
 		{
-			case 0:
-			case 1:
-			/*{
-				throw exception("未实现的网络");
-				break;
-			}*/
-			case 2:
-			case 3:
-			case 4:
-			case 5:
-			case 6:
-			{
-				*net = new YoloVino(nNetType);
-				break;
-			}
-			default:
-				throw exception("未实现的网络");
+			*net = new YoloOnnx(nNetType);
+		}
+		else if (sWeightPath.find("bin") != string::npos)
+		{
+			*net = new YoloBin(nNetType);
+		}
+		else
+		{
+			sNetStatus.nErrorType = 5;
+			strcpy_s(sNetStatus.pcErrorInfo, "不支持的权重文件类型");
+			return sNetStatus;
 		}
 		
-		
-		sNetStatus = ((BaseNet*)(*net))->InitNet(cCfgPath, cWeightsPath, nOriImgWidth, nOriImgHeight, nChannels, hv_htClassNames);
+		sNetStatus = ((Yolo*)(*net))->InitNet(cCfgPath, cWeightsPath, nOriImgWidth, nOriImgHeight, hv_htClassNames, nMode);
 		if (sNetStatus.nErrorType)return sNetStatus;
 
 		s_DLDetectResult sDLDetectResult;
@@ -231,6 +225,12 @@ void FreeNet(void* net)
 		switch (iNetType)
 		{
 			case 0:
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+			case 6:
 			{
 				Yolo *pNet = (Yolo *)net;
 				delete pNet;

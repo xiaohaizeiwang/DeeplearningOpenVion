@@ -150,14 +150,16 @@
     <ClInclude Include="half.hpp" />
     <ClInclude Include="Utils.h" />
     <ClInclude Include="Yolo.h" />
-    <ClInclude Include="YoloVino.h" />
+    <ClInclude Include="YoloBin.h" />
+    <ClInclude Include="YoloOnnx.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BaseNet.cpp" />
     <ClCompile Include="DeepLearning.cpp" />
     <ClCompile Include="Utills.cpp" />
     <ClCompile Include="Yolo.cpp" />
-    <ClCompile Include="YoloVino.cpp" />
+    <ClCompile Include="YoloBin.cpp" />
+    <ClCompile Include="YoloOnnx.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

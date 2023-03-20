@@ -14,14 +14,9 @@ public:
 	int m_ImgChannels;
 	int m_ClassNum;
 	int m_iNetType;
-	InferenceEngine::Precision m_Prc;
-	std::string m_inputName;
-	std::string m_outputName;
+	cv::Mat m_pStrides;
 	std::vector<std::string> m_VecClassName;
-
-	virtual s_NetStatus InitNet(char* cCfgPath, char* cWeightsPath, int *nOriImgWidth, int *nOriImgHeight, int *nChannels, HTuple* hv_htClassNames) = 0;
-
-protected:
-	InferenceEngine::InferRequest::Ptr m_inferRequest;
-
+	virtual s_NetStatus InitNet(char* cCfgPath, char* cWeightsPath, int* nOriImgWidth, int* nOriImgHeight, HTuple* hv_htClassNames) = 0;
+	virtual s_NetStatus InitNet(char* cCfgPath, char* cWeightsPath, int *nOriImgWidth, int *nOriImgHeight, HTuple* hv_htClassNames, int nMode) = 0;
+	virtual int DoInfer(cv::Mat& img, std::vector<cv::Mat>& results, float score) = 0;
 };

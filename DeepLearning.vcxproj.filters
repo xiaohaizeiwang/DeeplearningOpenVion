@@ -18,7 +18,7 @@
     <ClInclude Include="DeepLearning.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Yolo.h">
+    <ClInclude Include="YoloBin.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="BaseNet.h">
@@ -27,15 +27,18 @@
     <ClInclude Include="Utils.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="YoloVino.h">
+    <ClInclude Include="YoloOnnx.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="half.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="Yolo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Yolo.cpp">
+    <ClCompile Include="YoloBin.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="DeepLearning.cpp">
@@ -47,7 +50,10 @@
     <ClCompile Include="BaseNet.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="YoloVino.cpp">
+    <ClCompile Include="YoloOnnx.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Yolo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

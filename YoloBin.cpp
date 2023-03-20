@@ -1,12 +1,13 @@
-#include "YoloVino.h"
+#include "YoloBin.h"
+#include <io.h>
+#include <fstream>
 
-
-using namespace std;
 using namespace cv;
-using namespace dnn;
+using namespace ov;
+using namespace std;
 using namespace InferenceEngine;
 
-YoloVino::YoloVino(int nNetType)
+YoloBin::YoloBin(int nNetType)
 {
 	m_ImgWidth = -1;
 	m_ImgHeight = -1;
@@ -15,15 +16,81 @@ YoloVino::YoloVino(int nNetType)
 	m_iNetType = nNetType;
 	m_inputName = "";
 	m_outputName = "";
-	m_Prc = Precision::FP16;
+	m_Prc = Precision::FP32;
 }
 
-YoloVino::~YoloVino()
+
+YoloBin::~YoloBin()
 {
 
 }
 
-int YoloVino::DoInfer(cv::Mat& img, vector<Mat>& results, float score)
+s_NetStatus YoloBin::InitNet(char* cCfgPath, char* cWeightsPath, int* nOriImgWidth, int* nOriImgHeight, HTuple* hv_htClassNames, int nMode)
+{
+	s_NetStatus sNetStatus;
+
+	sNetStatus = Yolo::InitNet(cCfgPath, cWeightsPath, nOriImgWidth, nOriImgHeight, hv_htClassNames);
+	if (sNetStatus.nErrorType)
+	{
+		return sNetStatus;
+	}
+
+	string sParamPath(cCfgPath), sClsFilePath(cWeightsPath) , sWeightPath(cWeightsPath), sXmlPath(cWeightsPath);
+	
+	
+	sXmlPath = sXmlPath.substr(0, sXmlPath.find_last_of(".")) + ".xml";
+	if (access(sXmlPath.c_str(), 0) == -1)
+	{
+		sNetStatus.nErrorType = 2;
+		strcpy_s(sNetStatus.pcErrorInfo, "xml文件不存在");
+		return sNetStatus;
+	}
+	
+	string sDevice = "GPU";
+	switch (nMode)
+	{
+	case 0:
+		m_Prc = Precision::FP32;
+		sDevice = "CPU";
+		break;
+	case 1:
+		m_Prc = Precision::FP32;
+		sDevice = "GPU";
+		break;
+	case 2:
+		m_Prc = Precision::FP16;
+		sDevice = "GPU";
+		break;
+	default:
+		throw exception("运行方式有误");
+	}
+
+	InferenceEngine::Core ie;
+	//两种加载形式，直接加载onnx，或者加载
+	InferenceEngine::CNNNetwork network = ie.ReadNetwork(sXmlPath, cWeightsPath);
+	//输入名及输入指针的数组
+	InferenceEngine::InputsDataMap inputs = network.getInputsInfo();
+	InferenceEngine::OutputsDataMap outputs = network.getOutputsInfo();
+	m_inputName = inputs.begin()->first;
+	m_outputName = outputs.begin()->first;
+
+	InputInfo::Ptr pInputData = inputs.begin()->second;
+	DataPtr pOutputData = outputs.begin()->second;
+
+	pInputData->setPrecision(m_Prc);
+	pInputData->setLayout(InferenceEngine::Layout::NCHW);
+	pInputData->getPreProcess().setColorFormat(ColorFormat::RGB);
+	pOutputData->setPrecision(m_Prc);
+
+	//加载网络为可执行网络
+	auto executable_network = ie.LoadNetwork(network, sDevice);
+	m_inferRequest = executable_network.CreateInferRequestPtr();
+
+	return sNetStatus;
+}
+
+
+int YoloBin::DoInfer(cv::Mat& img, vector<Mat>& results, float score)
 {
 	try
 	{
@@ -46,15 +113,15 @@ int YoloVino::DoInfer(cv::Mat& img, vector<Mat>& results, float score)
 
 		if (m_Prc == Precision::FP16)
 		{
-			int16_t*dataout = output->buffer().as<PrecisionTrait<Precision::FP16>::value_type*>();
+			int16_t* dataout = output->buffer().as<PrecisionTrait<Precision::FP16>::value_type*>();
 			//解析顺序，维度为1的可直接略掉。
 			for (int i = 0; i < rows; ++i)
 			{
-				float confidence = f16_to_f32(dataout+4);
+				float confidence = f16_to_f32(dataout + 4);
 				if (confidence >= score)
 				{
 					float* classes_scores = new float[nClsNum];
-					for (int j = 0; j < nClsNum;j++)
+					for (int j = 0; j < nClsNum; j++)
 					{
 						classes_scores[j] = f16_to_f32(dataout + 5 + j);
 					}
@@ -84,14 +151,14 @@ int YoloVino::DoInfer(cv::Mat& img, vector<Mat>& results, float score)
 		}
 		else
 		{
-			float * dataout= output->buffer().as<PrecisionTrait<Precision::FP32>::value_type*>();
+			float* dataout = output->buffer().as<PrecisionTrait<Precision::FP32>::value_type*>();
 			//解析顺序，维度为1的可直接略掉。
 			for (int i = 0; i < rows; ++i)
 			{
 				float confidence = dataout[4];
 				if (confidence >= score)
 				{
-					float *classes_scores = dataout+5;
+					float* classes_scores = dataout + 5;
 					Mat scores(1, m_VecClassName.size(), CV_32FC1, classes_scores);
 					Point class_id;
 					double max_class_score;
@@ -115,9 +182,9 @@ int YoloVino::DoInfer(cv::Mat& img, vector<Mat>& results, float score)
 				dataout += dimensions;
 			}
 		}
-		
-		
-		
+
+
+
 		vector<int> nms_result;
 		dnn::NMSBoxes(boxes, confidences, score, 0.45, nms_result);
 		for (int i = 0; i < nms_result.size(); i++)
@@ -136,7 +203,7 @@ int YoloVino::DoInfer(cv::Mat& img, vector<Mat>& results, float score)
 	}
 }
 
-std::vector<float> YoloVino::LetterboxImage(const cv::Mat& src, Blob::Ptr pVnBlob, const cv::Size& out_size)
+std::vector<float> YoloBin::LetterboxImage(const cv::Mat& src, Blob::Ptr pVnBlob, const cv::Size& out_size)
 {
 	auto in_h = static_cast<float>(src.rows);
 	auto in_w = static_cast<float>(src.cols);
@@ -150,14 +217,26 @@ std::vector<float> YoloVino::LetterboxImage(const cv::Mat& src, Blob::Ptr pVnBlo
 
 	Mat dst;
 	cv::resize(src, dst, cv::Size(mid_w, mid_h));
+	if (dst.channels() == 1 && m_ImgChannels == 3)
+	{
+		cvtColor(dst, dst, COLOR_GRAY2RGB);
+	}
 
 	int top = (static_cast<int>(out_h) - mid_h) / 2;
 	int down = (static_cast<int>(out_h) - mid_h + 1) / 2;
 	int left = (static_cast<int>(out_w) - mid_w) / 2;
 	int right = (static_cast<int>(out_w) - mid_w + 1) / 2;
 
-	cv::copyMakeBorder(dst, dst, top, down, left, right, cv::BORDER_CONSTANT, cv::Scalar(114, 114, 114)); 
-	dst.convertTo(dst, CV_16FC(dst.channels()), 1.0f / 255.0f);
+	cv::copyMakeBorder(dst, dst, top, down, left, right, cv::BORDER_CONSTANT, cv::Scalar(114, 114, 114));
+	if (m_Prc == Precision::FP32)
+	{
+		dst.convertTo(dst, CV_32FC(dst.channels()), 1.0f / 255.0f);
+	}
+	else
+	{
+		dst.convertTo(dst, CV_16FC(dst.channels()), 1.0f / 255.0f);
+	}
+
 
 	InferenceEngine::MemoryBlob::Ptr pBlob = InferenceEngine::as<InferenceEngine::MemoryBlob>(pVnBlob);
 	if (!pBlob) {
@@ -165,16 +244,30 @@ std::vector<float> YoloVino::LetterboxImage(const cv::Mat& src, Blob::Ptr pVnBlo
 			<< "but by fact we were not able to cast inputBlob to MemoryBlob";
 	}
 
-	auto BlobHolder = pBlob->wmap();
-	unsigned short* blob_data = BlobHolder.as<unsigned short*>();
-
 	vector<Mat> vecChannels;
 	split(dst, vecChannels);
+	int nSize = m_ImgWidth * m_ImgHeight;
 
-	int nSize = m_ImgWidth * m_ImgHeight;//sizeof(float)*
-	memcpy(blob_data, vecChannels[0].data,  nSize);
-	memcpy(blob_data+ nSize, vecChannels[1].data, nSize);
-	memcpy(blob_data+ 2*nSize, vecChannels[2].data, nSize);
+	auto BlobHolder = pBlob->wmap();
+
+	if (m_Prc == Precision::FP32)
+	{
+		float* blob_data = BlobHolder.as<float*>();
+
+		memcpy(blob_data, vecChannels[0].data, nSize * sizeof(float));
+		memcpy(blob_data + nSize, vecChannels[1].data, nSize * sizeof(float));
+		memcpy(blob_data + 2 * nSize, vecChannels[2].data, nSize * sizeof(float));
+	}
+	else
+	{
+		unsigned short* blob_data = BlobHolder.as<unsigned short*>();
+
+		//sizeof(float)*
+		memcpy(blob_data, vecChannels[0].data, nSize * sizeof(unsigned short));
+		memcpy(blob_data + nSize, vecChannels[1].data, nSize * sizeof(unsigned short));
+		memcpy(blob_data + 2 * nSize, vecChannels[2].data, nSize * sizeof(unsigned short));
+	}
+
 
 	std::vector<float> pad_info{ static_cast<float>(left), static_cast<float>(top), scale };
 	return pad_info;
